@@ -8,146 +8,143 @@ namespace reimplimentation {
     class vector {
         public:
             vector() {
-                size = 0;
-                capacity = 0;
-                memory = nullptr;
+                _size_ = 0;
+                _capacity_ = 0;
+                _memory_ = nullptr;
             }
 
             vector(const vector& other) {
                 if (other.size == 0) {
-                    size = 0;
-                    capacity = 0;
-                    memory = nullptr;
+                    _size_ = 0;
+                    _capacity_ = 0;
+                    _memory_ = nullptr;
                     return;
                 }
 
-                memory = alloc.allocate(other.size);
-                std::size_t constructed = 0;
+                _memory_ = copy_allocate(other.memory, other.size);
+                _size_ = other.size;
+                _capacity_ = other.size;
+            }
 
-                try {
-                    for (std::size_t i = 0; i < other.size; i++) {
-                        std::allocator_traits<std::allocator<datatype>>::construct(alloc, memory + i, other.memory[i]);
-                        constructed++;
-                    }
-                } catch (...) {
-                    for (std::size_t i = 0; i < constructed; i++) {
-                        std::allocator_traits<std::allocator<datatype>>::destroy(alloc, memory + i);
-                    }
-                    alloc.deallocate(memory, other.size);
+            vector(vector&& other) noexcept {
+                _memory_ = other.memory;
+                _size_ = other.size;
+                _capacity_ = other.capacity;
 
-                    throw;
-                }
-
-                size = other.size;
-                capacity = other.size;
+                other.memory = nullptr;
+                other.size = 0;
+                other.capacity = 0;
             }
 
             ~vector() {
-                if (memory != nullptr) {
-                    for (std::size_t i = 0; i < size; i++) {
-                        std::allocator_traits<std::allocator<datatype>>::destroy(alloc, memory + i);
-                    }
-                    alloc.deallocate(memory, capacity);
-                }
+                destroy();
             }
 
             vector& operator=(const vector& other) {
-                if (other.size == 0) {
-                    if (memory != nullptr) {
-                        for (std::size_t i = 0; i < size; i++) {
-                            std::allocator_traits<std::allocator<datatype>>::destroy(alloc, memory + i);
-                        }
-                        alloc.deallocate(memory, capacity);
-                    }
+                if (this == &other) {
+                    return *this;
+                } else if (other.size == 0) {
+                    destroy();
+                } else {
+                    datatype* new_memory = copy_allocate(other.memory, other.size);
 
-                    size = 0;
-                    capacity = 0;
-                    memory = nullptr;
-                } else if (this != &other) {
-                    datatype* new_memory = alloc.allocate(other.size);
+                    destroy();
 
-                    std::size_t constructed = 0;
-                    try {
-                        for (std::size_t i = 0; i < other.size; i++) {
-                            std::allocator_traits<std::allocator<datatype>>::construct(alloc, new_memory + i, other.memory[i]);
-                            constructed++;
-                        }
-                    } catch (...) {
-                        for (std::size_t i = 0; i < constructed; i++) {
-                            std::allocator_traits<std::allocator<datatype>>::destroy(alloc, new_memory + i);
-                        }
-                        alloc.deallocate(new_memory, other.size);
-                        throw;
-                    }
-
-                    for (std::size_t i = 0; i < size; i++) { // dealoc objects of old array
-                        std::allocator_traits<std::allocator<datatype>>::destroy(alloc, memory + i);
-                    }
-
-                    if (memory != nullptr) {
-                        alloc.deallocate(memory, capacity);
-                    }
-                    memory = new_memory;
-                    capacity = other.size;
-                    size = other.size;
+                    _memory_ = new_memory;
+                    _capacity_ = other.size;
+                    _size_ = other.size;
                 }
 
                 return *this;
             }
 
             void push_back(datatype data) {
-                reserve(size + 1);
-                std::allocator_traits<std::allocator<datatype>>::construct(alloc, memory + size, std::move(data)); // safely (AKA Fuck it We BALL) move data to new vector
-                size++;
+                reserve(_size_ + 1);
+                std::allocator_traits<std::allocator<datatype>>::construct(_alloc_, _memory_ + _size_, std::move(data)); // safely (AKA ***** it We BALL) move data to new vector
+                _size_++;
             }
 
             std::size_t length() const {
-                return size;
+                return _size_;
             }
 
         private:
-            std::size_t size;
-            std::size_t capacity;
-            std::allocator<datatype> alloc;
-            datatype* memory;
+            std::size_t _size_;
+            std::size_t _capacity_;
+            std::allocator<datatype> _alloc_;
+            datatype* _memory_;
 
             void reserve(const std::size_t requestedCapacity) {
-                if (capacity >= requestedCapacity) { // Dont do unneeded work;
+                if (_capacity_ >= requestedCapacity) { // Dont do unneeded work;
                     return;
                 }
 
-                std::size_t new_capacity = capacity;
+                std::size_t new_capacity = _capacity_;
                 while (new_capacity < requestedCapacity) {
                     new_capacity = (new_capacity == 0) ? 1 : new_capacity * 2;
                 }
 
-                datatype* new_memory = alloc.allocate(new_capacity); // allocate new memory buffer
+                datatype* new_memory = _alloc_.allocate(new_capacity); // allocate new memory buffer
 
                 std::size_t constructed = 0;
 
                 try {
-                    for (std::size_t i = 0; i < size; i++) { // safely move data to new allocated array
-                        std::allocator_traits<std::allocator<datatype>>::construct(alloc, new_memory + i, std::move_if_noexcept(memory[i]));
+                    for (std::size_t i = 0; i < _size_; i++) { // safely move data to new allocated array
+                        std::allocator_traits<std::allocator<datatype>>::construct(_alloc_, new_memory + i, std::move_if_noexcept(_memory_[i]));
                         constructed++;
                     }
                 } catch (...) { // Catch Exceptions
                     for (std::size_t i = 0; i < constructed; i++) {
-                        std::allocator_traits<std::allocator<datatype>>::destroy(alloc, new_memory + i);
+                        std::allocator_traits<std::allocator<datatype>>::destroy(_alloc_, new_memory + i);
                     }
-                    alloc.deallocate(new_memory, new_capacity);
+                    _alloc_.deallocate(new_memory, new_capacity);
                     throw;
                 }
 
-                for (std::size_t i = 0; i < size; i++) { // dealoc objects of old array
-                    std::allocator_traits<std::allocator<datatype>>::destroy(alloc, memory + i);
+                destroy();
+
+                _size_ = constructed;
+                _memory_ = new_memory;
+                _capacity_ = new_capacity;
+            }
+
+            datatype* copy_allocate(const datatype* source, std::size_t count) {
+                if (count == 0) {
+                    return nullptr;
                 }
 
+                datatype* new_memory = _alloc_.allocate(count);
 
-                if (memory != nullptr) {
-                    alloc.deallocate(memory, capacity);
+                std::size_t constructed = 0;
+
+                try {
+                    for (std::size_t i = 0; i < count; i++) {
+                        std::allocator_traits<std::allocator<datatype>>::construct(_alloc_, new_memory + i, source[i]);
+                        constructed++;
+                    }
+                } catch (...) {
+                    for (std::size_t i = 0; i < constructed; i++) {
+                        std::allocator_traits<std::allocator<datatype>>::destroy(_alloc_, new_memory + i);
+                    }
+                    _alloc_.deallocate(new_memory, count);
+                    throw;
                 }
-                memory = new_memory;
-                capacity = new_capacity;
+
+                return new_memory;
+            }
+
+            void destroy() {
+                for (std::size_t i = 0; i < _size_; i++) {
+                    std::allocator_traits<std::allocator<datatype>>::destroy(_alloc_, _memory_ + i);
+                }
+
+                if (_memory_ != nullptr) {
+                    _alloc_.deallocate(_memory_, _capacity_);
+                }
+
+                _memory_ = nullptr;
+                _capacity_ = 0;
+                _size_ = 0;
             }
     };
 }
