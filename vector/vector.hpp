@@ -13,6 +13,35 @@ namespace reimplimentation {
                 memory = nullptr;
             }
 
+            vector(const vector& other) {
+                if (other.size == 0) {
+                    size = 0;
+                    capacity = 0;
+                    memory = nullptr;
+                    return;
+                }
+
+                memory = alloc.allocate(other.size);
+                std::size_t constructed = 0;
+
+                try {
+                    for (std::size_t i = 0; i < other.size; i++) {
+                        std::allocator_traits<std::allocator<datatype>>::construct(alloc, memory + i, other.memory[i]);
+                        constructed++;
+                    }
+                } catch (...) {
+                    for (std::size_t i = 0; i < constructed; i++) {
+                        std::allocator_traits<std::allocator<datatype>>::destroy(alloc, memory + i);
+                    }
+                    alloc.deallocate(memory, other.size);
+
+                    throw;
+                }
+
+                size = other.size;
+                capacity = other.size;
+            }
+
             ~vector() {
                 if (memory != nullptr) {
                     for (std::size_t i = 0; i < size; i++) {
@@ -82,7 +111,7 @@ namespace reimplimentation {
             std::allocator<datatype> alloc;
             datatype* memory;
 
-            void reserve(std::size_t requestedCapacity) {
+            void reserve(const std::size_t requestedCapacity) {
                 if (capacity >= requestedCapacity) { // Dont do unneeded work;
                     return;
                 }
