@@ -74,10 +74,12 @@ namespace reimplimentation {
                 return *this;
             }
 
-            void push_back(datatype data) {
-                reserve(size_ + 1);
-                std::allocator_traits<std::allocator<datatype>>::construct(alloc_, memory_ + size_, std::move(data)); // safely (AKA ***** it We BALL) move data to new vector
-                size_++;
+            void push_back(const datatype& data) {
+                emplace_back(data);
+            }
+
+            void push_back(datatype&& data) {
+                emplace_back(std::move(data));
             }
 
             void reserve(const std::size_t requestedCapacity) {
@@ -143,6 +145,13 @@ namespace reimplimentation {
 
             std::size_t size() const {
                 return size_;
+            }
+
+            template<typename... Args>
+            void emplace_back(Args&&... args) {
+                reserve(size_ + 1);
+                std::allocator_traits<std::allocator<datatype>>::construct(alloc_, memory_ + size_, std::forward<Args>(args)...);
+                size_++;
             }
 
         private:
